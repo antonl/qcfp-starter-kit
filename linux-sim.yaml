@@ -100,7 +100,6 @@ dependencies:
 - zlib=1.2.8=3
 - pip:
   - beanstalkclient==0.1.3
-    #- beanstalkpbs==0.1
   - configobj==5.0.6
   - globus-cli==0.6.0.0
   - globus-sdk==0.6.0
@@ -109,8 +108,7 @@ dependencies:
   - jupyter-core==4.2.1
   - pint==0.7.2
   - prompt-toolkit==1.0.9
-    #- pyqcfp (/u/home/aloukian/Documents/darius-simulation)==0.1.0
   - straitlets==0.3.0
   - tqdm==4.11.2
-#prefix: /home/aloukian/miniconda3/envs/sim
+prefix: /home/aloukian/miniconda3/envs/sim
 

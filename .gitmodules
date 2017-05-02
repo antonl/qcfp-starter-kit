@@ -1,0 +1,7 @@
+[submodule "darius-simulation"]
+	path = darius-simulation
+	url = git@github.com:antonl/darius-simulation.git
+	branch = flux-updates
+[submodule "bspbs"]
+	path = bspbs
+	url = git@github.com:antonl/bspbs.git
