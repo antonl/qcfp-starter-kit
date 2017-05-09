@@ -15,6 +15,7 @@ matplotlib.use('Agg')
 from matplotlib.pyplot import *
 from matplotlib.colors import SymLogNorm
 from matplotlib.ticker import SymmetricalLogLocator
+from cycler import cycler
 
 from pyqcfp.delayed import SimulationCheckpoint
 from pyqcfp.runqcfp import QcfpConfig
@@ -44,6 +45,24 @@ params.update({
 
 def normalize(data):
     return data / np.abs(data).max()
+
+def plot_evecs(energies, evecs2, which, path):
+    rcParams.update(params)
+    pts_used = energies.shape[0]
+    nvecs = energies.shape[1]
+    fig = figure()
+    ax = fig.add_subplot(111, polar=True)
+    cyc = cycler(color=['b', 'r', 'g'])
+
+    #for which in range(nvecs):
+    for i,prop in zip(range(nvecs), cyc):
+        ax.scatter(3*np.pi/2*evecs2[:pts_used//2, i, which],
+               energies[:pts_used//2, which], alpha=0.8, **prop)
+    ax.set_rlim(14200, 15100)
+    ax.set_theta_offset(-np.pi/4)
+    ax.set_rlabel_position(np.degrees(3*np.pi/2))
+    ax.set_xticklabels(['{:3.0f}%'.format(x) for x in np.linspace(0, 100, 7)] + [''])
+    fig.savefig(path, bbox_inches='tight')
 
 def plot_2d(w1, w3, signal, path, invert_w1=False, scale=None, axlim=None):
     signal2 = -1 *signal
@@ -163,6 +182,26 @@ def make_figures(path, limits):
     redfield = np.array(ddfile['meta/redfield relaxation matrix'])
     reorgs = np.diag(reorgs)[1:nstates+1]
     redfield = np.diag(redfield)[1:nstates+1]
+    dephasingmat = np.array(ddfile['meta/lifetime dephasing matrix'])[:,
+                   ::2] + \
+                   1j*np.array(ddfile['meta/lifetime dephasing matrix'])[:, 1::2]
+    imagdeph = dephasingmat[1:nstates+1,0].imag
+
+    fixed_energies = energies - reorgs
+    fixed_energies2 = energies - reorgs + imagdeph +6.6
+
+    reorgs_trace = np.diagonal(ddfile['00000/meta/reorganization energy matrix'],
+                               axis1=1, axis2=2)[:, 1:nstates+1]
+    evecs2_trace = np.array(ddfile['00000/meta/ge eigenvectors'])**2
+
+
+    energies_trace = np.array(ddfile['00000/meta/one band energies'])
+    dephasingmat_trace = np.array(ddfile['00000/meta/lifetime dephasing '
+                                         'matrix'])[:,:,::2] + \
+                   1j*np.array(ddfile['00000/meta/lifetime dephasing '
+                                      'matrix'])[:,:,1::2]
+    imagdeph_trace = dephasingmat_trace[:, 1:nstates+1,0].imag
+    corr_energies = energies_trace - reorgs_trace + imagdeph_trace + 3.2
 
     # prepare folder for writing things
     figpath = (path / 'jennifer-figs')
@@ -171,8 +210,8 @@ def make_figures(path, limits):
     with (figpath / 'eigen-energies.info').open('w') as f:
         print('Eigen-energies:', energies, file=f)
         print('GE reorganization energies:', reorgs, file=f)
-        print('Redfield diagonal relaxation:', redfield, file=f)
-        print('Shifted energies:', energies-reorgs-redfield, file=f)
+        print('Shifted energies:', fixed_energies, file=f)
+        print('Shifted energies + deph:', fixed_energies2, file=f)
         print(file=f)
         for i in range(evecs2.shape[0]):
             print('Localization of eigenstate {:d}:'.format(i), file=f)
@@ -200,6 +239,10 @@ def make_figures(path, limits):
     s = str(figpath / '2d-stark.png')
     pool.submit(plot_2d, w1=w1, w3=w3, signal=dd.fieldon-dd.fieldoff, path=s, axlim=limits)
 
+    for i in range(nstates):
+        s = str(figpath / '2d-evecs{:d}.png'.format(i))
+        pool.submit(plot_evecs, corr_energies, evecs2_trace, i, s)
+
     dd_projection = -(ddref).sum(axis=1)
     ddess_projection = -(dd.fieldon - dd.fieldoff).sum(axis=1)
 
@@ -221,7 +264,7 @@ def make_figures(path, limits):
     fig = figure()
     ax1 = fig.add_subplot(111)
     ax1.plot(w3, normalize(absref), linewidth=2)
-    #ax1.plot(w3, normalize(dd_projection))
+    ax1.plot(w3, normalize(dd_projection), linewidth=2)
     ax1.set_xlim(*limits)
     ax1.xaxis.set_visible(False)
     ax1.yaxis.set_visible(False)
@@ -242,8 +285,8 @@ def make_figures(path, limits):
     fig = figure()
     ax2 = fig.add_subplot(111)
 
-    ax2.plot(w3, normalize(abs.fieldon - abs.fieldoff), linewidth=4)
-    #ax2.plot(w3, normalize(ddess_projection))
+    ax2.plot(w3, normalize(abs.fieldon - abs.fieldoff), linewidth=2)
+    ax2.plot(w3, normalize(ddess_projection), linewidth=2)
     ax2.set_xlim(*limits)
     print('Using limits ', limits)
     ax2.xaxis.set_visible(False)
